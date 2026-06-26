@@ -40,7 +40,10 @@ export async function GET(request: NextRequest) {
 
   fetch(`${appUrl}/api/agents/email/sync`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.CRON_SECRET}`,
+    },
     body: JSON.stringify({ userId: user.id }),
   }).catch(() => {});
 
