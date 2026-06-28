@@ -13,9 +13,21 @@ export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
 ];
 
-export async function fetchRecentGmailMessages(accessToken: string, maxResults = 20) {
+export async function fetchRecentGmailMessages(
+  account: { access_token: string; refresh_token: string | null },
+  maxResults = 20
+) {
   const auth = getGoogleOAuthClient();
-  auth.setCredentials({ access_token: accessToken });
+  auth.setCredentials({
+    access_token: account.access_token,
+    refresh_token: account.refresh_token ?? undefined,
+  });
+
+  let refreshedTokens: { access_token?: string | null; expiry_date?: number | null } | null = null;
+  auth.on("tokens", (tokens) => {
+    if (tokens.access_token) refreshedTokens = tokens;
+  });
+
   const gmail = google.gmail({ version: "v1", auth });
 
   const list = await gmail.users.messages.list({
@@ -49,5 +61,5 @@ export async function fetchRecentGmailMessages(accessToken: string, maxResults =
     })
   );
 
-  return messages;
+  return { messages, refreshedTokens };
 }

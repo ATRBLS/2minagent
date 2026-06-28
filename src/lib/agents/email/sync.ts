@@ -19,10 +19,34 @@ export async function syncEmailsForUser(userId: string) {
   let newDeadlines = 0;
 
   for (const account of accounts ?? []) {
-    const messages =
+    const { messages, refreshedTokens } =
       account.provider === "gmail"
-        ? await fetchRecentGmailMessages(account.access_token)
-        : await fetchRecentOutlookMessages(account.access_token);
+        ? await fetchRecentGmailMessages(account)
+        : await fetchRecentOutlookMessages(account);
+
+    if (refreshedTokens?.access_token) {
+      const tokens = refreshedTokens as {
+        access_token?: string | null;
+        refresh_token?: string | null;
+        expiry_date?: number | null;
+        expires_in?: number | null;
+      };
+
+      const expiresAt = tokens.expiry_date
+        ? new Date(tokens.expiry_date).toISOString()
+        : tokens.expires_in
+          ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+          : account.expires_at;
+
+      await supabase
+        .from("connected_accounts")
+        .update({
+          access_token: tokens.access_token,
+          ...(tokens.refresh_token ? { refresh_token: tokens.refresh_token } : {}),
+          expires_at: expiresAt,
+        })
+        .eq("id", account.id);
+    }
 
     for (const msg of messages) {
       const { data: existing } = await supabase
